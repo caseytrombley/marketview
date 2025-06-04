@@ -1,6 +1,29 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ClipLoader } from 'react-spinners';
+import { motion } from 'framer-motion';
+import {
+    AppBar,
+    Toolbar,
+    Typography,
+    TextField,
+    Button,
+    Container,
+    Paper,
+    Card,
+    CardContent,
+    Grid,
+    Box,
+    IconButton,
+    useTheme,
+    useMediaQuery,
+    CssBaseline,
+    Link,
+    Switch,
+} from '@mui/material';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
 import './App.css';
 
 // Define types for Marketstack API response
@@ -25,9 +48,50 @@ function App() {
     const [trend, setTrend] = useState<string>('');
     const [movingAverage, setMovingAverage] = useState<number[]>([]);
     const [volatility, setVolatility] = useState<string>('');
+    const [darkMode, setDarkMode] = useState<boolean>(true);
+
+    // Create MUI theme
+    const theme = createTheme({
+        palette: {
+            mode: darkMode ? 'dark' : 'light',
+            primary: { main: '#00f6ff' }, // Cyan for fintech vibe
+            secondary: { main: '#82ff94' }, // Lime for accents
+            error: { main: '#ff4d4d' },
+            background: {
+                default: darkMode ? '#1a1a2e' : '#f5f5f5',
+                paper: darkMode ? '#222235' : '#ffffff',
+            },
+        },
+        typography: {
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+            h1: { fontSize: '2.2rem', fontWeight: 600 },
+            h2: { fontSize: '1.5rem', fontWeight: 500 },
+            body1: { fontSize: '1rem' },
+        },
+        components: {
+            MuiCard: {
+                styleOverrides: {
+                    root: {
+                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                        '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: darkMode
+                                ? '0 6px 20px rgba(0, 246, 255, 0.3)'
+                                : '0 6px 20px rgba(0, 0, 0, 0.2)',
+                        },
+                    },
+                },
+            },
+        },
+    });
 
     // Fetch End-of-Day data from Marketstack API
     const fetchData = async () => {
+        if (!symbol.trim()) {
+            setError('Please enter a valid stock symbol.');
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
@@ -94,10 +158,17 @@ function App() {
         }
     };
 
-    // Fetch data on mount and when symbol changes
+    // Fetch data on mount
     useEffect(() => {
         fetchData();
     }, []);
+
+    // Handle Enter key press for TextField
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'Enter') {
+            fetchData();
+        }
+    };
 
     // Calculate high/low for the report
     const getHighLow = () => {
@@ -117,60 +188,185 @@ function App() {
         movingAverage: movingAverage[movingAverage.length - 1 - index] || null,
     }));
 
+    // Theme toggle
+    const handleThemeToggle = () => {
+        setDarkMode(!darkMode);
+    };
+
+    // Responsive check
+    const themeObj = useTheme();
+    const isMobile = useMediaQuery(themeObj.breakpoints.down('sm'));
+
     return (
-        <div className="app-container">
-            <h1>Marketstack End-of-Day Dashboard</h1>
-
-            {/* Symbol Input */}
-            <div className="input-container">
-                <input
-                    type="text"
-                    value={symbol}
-                    onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                    placeholder="Enter stock symbol (e.g., AAPL)"
+        <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+                {/* Header */}
+                <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Toolbar>
+                        <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
+              <span style={{ position: 'relative', bottom: '-3px' }}>
+                <img
+                    src="/favicon.png"
+                    alt="MarketView Logo"
+                    style={{ width: 32, height: 32, marginRight: 8 }}
+                    data-testid="favicon-logo"
                 />
-                <button onClick={fetchData} disabled={loading}>
-                    {loading ? 'Loading...' : 'Fetch Data'}
-                </button>
-            </div>
+              </span>
+                            <span>MarketView</span>
+                        </Typography>
+                        <Switch
+                            checked={darkMode}
+                            onChange={handleThemeToggle}
+                            icon={<Brightness7Icon />}
+                            checkedIcon={<Brightness4Icon />}
+                            aria-label="Toggle dark mode"
+                        />
+                    </Toolbar>
+                </AppBar>
 
-            {loading && (
-                <div className="loader">
-                    <ClipLoader color="#8884d8" size={50} />
-                </div>
-            )}
-            {error && <p className="error">{error}</p>}
+                {/* Main Content */}
+                <Container maxWidth="lg" sx={{ flexGrow: 1, py: 4 }}>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+                        {/* Symbol Input */}
+                        <Box sx={{ display: 'flex', gap: 2, mb: 4, justifyContent: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
+                            <TextField
+                                label="Stock Symbol"
+                                value={symbol}
+                                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                                onKeyDown={handleKeyDown} // Handle Enter key press
+                                placeholder="e.g., AAPL"
+                                variant="outlined"
+                                size="small"
+                                sx={{ width: isMobile ? '100%' : 200 }}
+                                inputProps={{ 'aria-label': 'Stock symbol input', 'data-testid': 'symbol-input' }}
+                            />
+                            <Button
+                                variant="contained"
+                                onClick={fetchData}
+                                disabled={loading}
+                                sx={{ px: 3 }}
+                                aria-label="Fetch stock data"
+                                data-testid="fetch-button"
+                            >
+                                {loading ? 'Loading...' : 'Fetch Data'}
+                            </Button>
+                        </Box>
 
-            {!loading && !error && data.length > 0 && (
-                <>
-                    {/* Chart Section */}
-                    <div className="chart-container">
-                        <h2>End-of-Day Price for {symbol} (Last 100 Days)</h2>
-                        <ResponsiveContainer width="100%" height={400}>
-                            <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="date" tickFormatter={(date) => new Date(date).toLocaleDateString()} />
-                                <YAxis domain={['auto', 'auto']} />
-                                <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
-                                <Legend />
-                                <Line type="monotone" dataKey="close" stroke="#8884d8" name="Close Price" />
-                                <Line type="monotone" dataKey="movingAverage" stroke="#82ca9d" name="7-Day Moving Average" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
+                        {loading && (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }} data-testid="loader">
+                                <ClipLoader color={theme.palette.primary.main} size={50} />
+                            </Box>
+                        )}
+                        {error && (
+                            <Typography color="error" align="center" sx={{ my: 2 }} data-testid="error-message">
+                                {error}
+                            </Typography>
+                        )}
 
-                    {/* Trends Analysis Section */}
-                    <div className="report-container">
-                        <h2>Trends Analysis for {symbol}</h2>
-                        <p><strong>Price Trend:</strong> {trend}</p>
-                        <p><strong>Highest Price:</strong> ${high}</p>
-                        <p><strong>Lowest Price:</strong> ${low}</p>
-                        <p><strong>7-Day Moving Average (Latest):</strong> ${movingAverage[0]?.toFixed(2) || 'N/A'}</p>
-                        <p><strong>Volatility (Daily Returns):</strong> {volatility}%</p>
-                    </div>
-                </>
-            )}
-        </div>
+                        {!loading && !error && data.length > 0 && (
+                            <>
+                                {/* Chart Section */}
+                                <Paper elevation={3} sx={{ p: 3, mb: 4, background: theme.palette.background.paper }} data-testid="chart-container">
+                                    <Typography variant="h2" gutterBottom data-testid="chart-title">
+                                        End-of-Day Price for {symbol} (Last 100 Days)
+                                    </Typography>
+                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+                                        <ResponsiveContainer width="100%" height={400}>
+                                            <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                <CartesianGrid stroke={theme.palette.divider} strokeDasharray="3 3" />
+                                                <XAxis
+                                                    dataKey="date"
+                                                    tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
+                                                    tickFormatter={(date) => new Date(date).toLocaleDateString()}
+                                                />
+                                                <YAxis
+                                                    domain={['auto', 'auto']}
+                                                    tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
+                                                    tickFormatter={(value) => `$${value.toFixed(0)}`}
+                                                />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: theme.palette.background.paper,
+                                                        border: `1px solid ${theme.palette.divider}`,
+                                                        color: theme.palette.text.primary,
+                                                    }}
+                                                    formatter={(value: number) => `$${value.toFixed(2)}`}
+                                                />
+                                                <Legend wrapperStyle={{ color: theme.palette.text.secondary }} />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="close"
+                                                    stroke={theme.palette.primary.main}
+                                                    name="Close Price"
+                                                    strokeWidth={2}
+                                                />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="movingAverage"
+                                                    stroke={theme.palette.secondary.main}
+                                                    name="7-Day Moving Average"
+                                                    strokeWidth={2}
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </motion.div>
+                                </Paper>
+
+                                {/* Trends Analysis Section */}
+                                <Box sx={{ mb: 4 }} data-testid="report-container">
+                                    <Typography variant="h2" gutterBottom data-testid="report-title">
+                                        Trends Analysis for {symbol}
+                                    </Typography>
+                                    <Grid container spacing={2}>
+                                        {[
+                                            { label: 'Price Trend', value: trend, className: trend.includes('Upward') ? 'trend-up' : 'trend-down' },
+                                            { label: 'Highest Price', value: `$${high}` },
+                                            { label: 'Lowest Price', value: `$${low}` },
+                                            { label: '7-Day Moving Average (Latest)', value: `$${movingAverage[0]?.toFixed(2) || 'N/A'}` },
+                                            { label: 'Volatility (Daily Returns)', value: `${volatility}%` },
+                                        ].map((item, index) => (
+                                            <Grid item xs={12} sm={6} md={4} key={index}>
+                                                <Card data-testid={`trend-card-${index}`}>
+                                                    <CardContent sx={{ textAlign: 'center' }}>
+                                                        <Typography variant="body1" component="div" sx={{ fontWeight: 600, mb: 1 }}>
+                                                            {item.label}
+                                                        </Typography>
+                                                        <Typography
+                                                            variant="body1"
+                                                            className={item.className}
+                                                            data-testid={`trend-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                                        >
+                                                            {item.value}
+                                                        </Typography>
+                                                    </CardContent>
+                                                </Card>
+                                            </Grid>
+                                        ))}
+                                    </Grid>
+                                </Box>
+                            </>
+                        )}
+                    </motion.div>
+                </Container>
+
+                {/* Footer */}
+                <Box component="footer" sx={{ py: 3, mt: 'auto', borderTop: '1px solid', borderColor: 'divider', background: theme.palette.background.paper }}>
+                    <Container maxWidth="lg">
+                        <Typography variant="body2" color="text.secondary" align="center">
+                            © {new Date().getFullYear()} MarketView Dashboard. Powered by{' '}
+                            <Link href="https://marketstack.com" target="_blank" color="primary">
+                                Marketstack
+                            </Link>
+                            .{' '}
+                            <Link href="https://github.com" target="_blank" color="primary">
+                                View Source
+                            </Link>
+                        </Typography>
+                    </Container>
+                </Box>
+            </Box>
+        </ThemeProvider>
     );
 }
 

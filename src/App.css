@@ -40,3 +40,13 @@ h2 {
 p {
   margin: 5px 0;
 }
+
+.trend-up {
+  color: #82ff94;
+  font-weight: 500;
+}
+
+.trend-down {
+  color: #ff4d4d;
+  font-weight: 500;
+}
