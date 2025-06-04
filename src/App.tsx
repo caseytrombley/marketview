@@ -6,6 +6,7 @@ import {
     AppBar,
     Toolbar,
     Typography,
+    Autocomplete,
     TextField,
     Button,
     Container,
@@ -14,17 +15,17 @@ import {
     CardContent,
     Grid,
     Box,
-    IconButton,
+    Switch,
     useTheme,
     useMediaQuery,
     CssBaseline,
     Link,
-    Switch,
 } from '@mui/material';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import './App.css';
+import staticTickers from '../data/tickers.json';
 
 // Define types for Marketstack API response
 interface EODDataPoint {
@@ -40,6 +41,16 @@ interface MarketstackResponse {
     data: EODDataPoint[];
 }
 
+interface Ticker {
+    symbol: string;
+    name: string;
+    exchange: string;
+}
+
+interface TickersResponse {
+    data: Ticker[];
+}
+
 function App() {
     const [data, setData] = useState<EODDataPoint[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
@@ -49,13 +60,14 @@ function App() {
     const [movingAverage, setMovingAverage] = useState<number[]>([]);
     const [volatility, setVolatility] = useState<string>('');
     const [darkMode, setDarkMode] = useState<boolean>(true);
+    const [tickers, setTickers] = useState<Ticker[]>(staticTickers.data);
 
     // Create MUI theme
     const theme = createTheme({
         palette: {
             mode: darkMode ? 'dark' : 'light',
-            primary: { main: '#00f6ff' }, // Cyan for fintech vibe
-            secondary: { main: '#82ff94' }, // Lime for accents
+            primary: { main: '#00f6ff' },
+            secondary: { main: '#82ff94' },
             error: { main: '#ff4d4d' },
             background: {
                 default: darkMode ? '#1a1a2e' : '#f5f5f5',
@@ -85,10 +97,48 @@ function App() {
         },
     });
 
+    // Fetch tickers from Marketstack API or use static data
+    useEffect(() => {
+        const fetchTickers = async () => {
+            try {
+                const apiKey = import.meta.env.VITE_MARKETSTACK_API_KEY;
+                if (!apiKey || apiKey === 'undefined') {
+                    console.warn('API key missing, using static tickers.');
+                    return;
+                }
+                const response = await fetch(
+                    `http://api.marketstack.com/v1/tickers?access_key=${apiKey}&limit=1000`
+                );
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch tickers: ${response.status}`);
+                }
+                const result: TickersResponse = await response.json();
+                setTickers(result.data);
+                // Optionally save to localStorage to cache
+                localStorage.setItem('tickers', JSON.stringify(result.data));
+            } catch (err) {
+                console.error('Error fetching tickers:', err);
+                // Fallback to static data or cached data
+                const cachedTickers = localStorage.getItem('tickers');
+                if (cachedTickers) {
+                    setTickers(JSON.parse(cachedTickers));
+                }
+            }
+        };
+
+        // Check if cached data exists
+        const cachedTickers = localStorage.getItem('tickers');
+        if (cachedTickers) {
+            setTickers(JSON.parse(cachedTickers));
+        } else {
+            fetchTickers();
+        }
+    }, []);
+
     // Fetch End-of-Day data from Marketstack API
     const fetchData = async () => {
         if (!symbol.trim()) {
-            setError('Please enter a valid stock symbol.');
+            setError('Please enter or select a valid stock symbol.');
             setLoading(false);
             return;
         }
@@ -163,7 +213,7 @@ function App() {
         fetchData();
     }, []);
 
-    // Handle Enter key press for TextField
+    // Handle Enter key press or selection
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter') {
             fetchData();
@@ -230,16 +280,35 @@ function App() {
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
                         {/* Symbol Input */}
                         <Box sx={{ display: 'flex', gap: 2, mb: 4, justifyContent: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
-                            <TextField
-                                label="Stock Symbol"
-                                value={symbol}
-                                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                                onKeyDown={handleKeyDown} // Handle Enter key press
-                                placeholder="e.g., AAPL"
-                                variant="outlined"
-                                size="small"
-                                sx={{ width: isMobile ? '100%' : 200 }}
-                                inputProps={{ 'aria-label': 'Stock symbol input', 'data-testid': 'symbol-input' }}
+                            <Autocomplete
+                                id="stock-search"
+                                options={tickers}
+                                getOptionLabel={(option) => `${option.symbol} - ${option.name}`}
+                                filterOptions={(options, { inputValue }) =>
+                                    options.filter(
+                                        (option) =>
+                                            option.symbol.toLowerCase().includes(inputValue.toLowerCase()) ||
+                                            option.name.toLowerCase().includes(inputValue.toLowerCase())
+                                    )
+                                }
+                                onChange={(event, value) => setSymbol(value ? value.symbol : '')}
+                                onKeyDown={handleKeyDown}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label="Search Stock or Company"
+                                        placeholder="e.g., AAPL or Apple"
+                                        variant="outlined"
+                                        size="small"
+                                        sx={{ width: isMobile ? '100%' : 300 }}
+                                        inputProps={{
+                                            ...params.inputProps,
+                                            'aria-label': 'Search stock or company',
+                                            'data-testid': 'symbol-input',
+                                        }}
+                                    />
+                                )}
+                                sx={{ width: isMobile ? '100%' : 300 }}
                             />
                             <Button
                                 variant="contained"
